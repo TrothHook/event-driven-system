@@ -1,32 +1,37 @@
 import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Order } from "./orders.entity";
 import { KafkaService } from "../kafka/kafka.service";
-import { v4 as uuidv4 } from "uuid";
+import { CreateOrderDto } from "./dto/create-order.dto";
 
 @Injectable()
 export class OrdersService {
-  private orders: any[] = [];
+  constructor(
+    @InjectRepository(Order)
+    private orderRepo: Repository<Order>,
+    private kafkaService: KafkaService,
+  ) {}
 
-  constructor(private kafkaService: KafkaService) {}
-
-  async createOrder(data: any) {
-    console.log("🔄 Creating order with data:", data);
-    const order = {
-      id: uuidv4(),
-      status: "CREATED",
+  async createOrder(data: CreateOrderDto) {
+    const order = this.orderRepo.create({
       ...data,
-    };
+      status: "CREATED",
+    });
 
-    this.orders.push(order);
-    console.log("💾 Order stored in memory:", order);
+    const savedOrder = await this.orderRepo.save(order);
 
-    // publish event
     try {
-      await this.kafkaService.sendEvent("order.created", order);
-      console.log("🚀 Event published to Kafka topic 'order.created'");
+      await this.kafkaService.sendEvent("order.created", savedOrder);
+      console.log("Event published to Kafka topic 'order.created'")
     } catch (error) {
-      console.error("❌ Failed to publish event:", error);
+      const message = error instanceof Error ? error.message : String(error);
+
+      console.error(`Failed to publish Kafka event: ${message}`);
+
+      // optional: mark for retry / outbox (advanced)
     }
 
-    return order;
+    return savedOrder;
   }
 }
