@@ -51,6 +51,7 @@ services:
   order-service:
     build: ./services/order-service
     container_name: order-service
+    restart: always
     ports:
       - "3001:3001"
     depends_on:
@@ -66,10 +67,36 @@ services:
   payment-service:
     build: ./services/payment-service
     container_name: payment-service
+    restart: always
     environment:
       KAFKA_BROKER: redpanda:9092
     depends_on:
       - redpanda
+
+  inventory-service:
+    build: ./services/inventory-service
+    container_name: inventory-service
+    depends_on:
+    - redpanda
+    - postgres
+    restart: always
+    environment:
+      KAFKA_BROKER: redpanda:9092
+      DB_HOST: postgres
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: event_driven_system
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: notification-service
+    restart: always
+    depends_on:
+      - redpanda
+    environment:
+      KAFKA_BROKER: redpanda:9092
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: onboarding@resend.dev
 
 volumes:
   postgres_data:

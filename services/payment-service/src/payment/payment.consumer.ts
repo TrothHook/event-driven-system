@@ -4,6 +4,8 @@ import { KafkaService } from "../kafka/kafka.service";
 interface PaymentEvent {
   orderId: string;
   status: "SUCCESS" | "FAILED";
+  productId?: string;
+  quantity?: number;
 }
 
 interface OrderCreatedEvent {
@@ -65,7 +67,7 @@ export class PaymentConsumer implements OnModuleInit {
 
     this.logger.error(`💀 Sending to DLQ for order ${order.id}`);
 
-    // ✅ emit FAILED event (standardized)
+    //emit FAILED event (standardized)
     const event: PaymentEvent = {
       orderId: order.id,
       status: "FAILED",
@@ -92,6 +94,8 @@ export class PaymentConsumer implements OnModuleInit {
     const event: PaymentEvent = {
       orderId: order.id,
       status: "SUCCESS",
+      productId: order.productId,
+      quantity: order.quantity,
     };
 
     await this.kafkaService.sendEvent("payment.success", event);

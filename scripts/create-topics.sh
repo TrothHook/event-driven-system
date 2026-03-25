@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#1. when an order has failed, if same order placed again, a new record is created in orders table, the old record with same id has status as "CREATED"
+
 # Script to create Kafka topics for the event-driven system
 
 KAFKA_BROKER=${KAFKA_BROKER:-redpanda:9092}

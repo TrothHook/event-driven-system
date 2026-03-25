@@ -1,22 +1,22 @@
 import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
 
-@Entity()
+@Entity("orders")
 export class Order {
   @PrimaryGeneratedColumn("uuid")
-    id!: string;
+  id!: string;
 
   @Column()
-    userId!: string;
+  userId!: string;
 
   @Column()
-    productId!: string;
+  productId!: string;
 
   @Column()
-    quantity!: number;
+  quantity!: number;
 
   @Column()
-    amount!: number;
+  amount!: number;
 
   @Column()
-    status!: string;
+  status!: string;
 }

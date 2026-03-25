@@ -101,7 +101,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`Payment successful for order ${order.id}`);
 
-    // 🔥 emit success event
+    // 🔥 emit success event with product details so downstream consumers can update inventory
     await this.producer.send({
       topic: "payment.success",
       messages: [
@@ -109,6 +109,8 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
           value: JSON.stringify({
             orderId: order.id,
             status: "SUCCESS",
+            productId: order.productId,
+            quantity: order.quantity,
           }),
         },
       ],
