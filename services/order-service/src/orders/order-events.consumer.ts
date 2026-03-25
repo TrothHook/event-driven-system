@@ -47,7 +47,13 @@ export class OrderEventsConsumer implements OnModuleInit {
 
           this.logger.log(`Received ${topic}: ${raw}`);
 
-          await this.updateOrderStatus(data);
+          if (topic === "payment.success") {
+            await this.updateOrderStatus(data, "COMPLETED");
+          }
+
+          if (topic === "payment.failed") {
+            await this.updateOrderStatus(data, "FAILED");
+          }
         } catch (error) {
           this.logger.error("Failed to process event", error);
         }
@@ -55,8 +61,8 @@ export class OrderEventsConsumer implements OnModuleInit {
     });
   }
 
-  async updateOrderStatus(event: PaymentEvent) {
-    const { orderId, status } = event;
+  async updateOrderStatus(event: PaymentEvent, status: "COMPLETED" | "FAILED") {
+    const { orderId } = event;
 
     const eventId = `${orderId}-${status}`;
 
@@ -68,10 +74,8 @@ export class OrderEventsConsumer implements OnModuleInit {
       return;
     }
 
-    const newStatus = status === "SUCCESS" ? "COMPLETED" : "FAILED";
-
     const result = await this.orderRepo.update(orderId, {
-      status: newStatus,
+      status,
     });
 
     //mark processed
@@ -82,6 +86,6 @@ export class OrderEventsConsumer implements OnModuleInit {
       return;
     }
 
-    this.logger.log(`Order ${orderId} updated to ${newStatus}`);
+    this.logger.log(`Order ${orderId} updated to ${status}`);
   }
 }
