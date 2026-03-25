@@ -6,7 +6,6 @@ interface PaymentEvent {
   status: "SUCCESS" | "FAILED";
 }
 
-
 interface OrderCreatedEvent {
   id: string;
   userId: string;
@@ -72,7 +71,7 @@ export class PaymentConsumer implements OnModuleInit {
       status: "FAILED",
     };
 
-    await this.kafkaService.emit("payment.failed", event);
+    await this.kafkaService.sendEvent("payment.failed", event);
   }
 
   // 💳 main logic
@@ -95,7 +94,7 @@ export class PaymentConsumer implements OnModuleInit {
       status: "SUCCESS",
     };
 
-    await this.kafkaService.emit("payment.success", event);
+    await this.kafkaService.sendEvent("payment.success", event);
   }
 
   private async delay(ms: number) {

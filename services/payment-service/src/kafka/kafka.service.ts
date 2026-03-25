@@ -142,7 +142,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     return this.consumer;
   }
 
-  async emit(topic: string, message: any): Promise<void> {
+  async sendEvent(topic: string, message: any): Promise<void> {
     await this.producer.send({
       topic,
       messages: [

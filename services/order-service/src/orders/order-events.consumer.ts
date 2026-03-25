@@ -3,6 +3,7 @@ import { Kafka } from "kafkajs";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Order } from "./orders.entity";
+import { ProcessedEvent } from "../processed-events/processed-event.entity";
 
 interface PaymentEvent {
   orderId: string;
@@ -23,6 +24,9 @@ export class OrderEventsConsumer implements OnModuleInit {
   constructor(
     @InjectRepository(Order)
     private orderRepo: Repository<Order>,
+
+    @InjectRepository(ProcessedEvent)
+    private processedRepo: Repository<ProcessedEvent>,
   ) {}
 
   async onModuleInit() {
@@ -54,11 +58,24 @@ export class OrderEventsConsumer implements OnModuleInit {
   async updateOrderStatus(event: PaymentEvent) {
     const { orderId, status } = event;
 
+    const eventId = `${orderId}-${status}`;
+
+    //check for duplicate
+    const exists = await this.processedRepo.findOne({ where: { eventId } });
+
+    if (exists) {
+      this.logger.warn(`Duplicate event skipped: ${eventId}`);
+      return;
+    }
+
     const newStatus = status === "SUCCESS" ? "COMPLETED" : "FAILED";
 
     const result = await this.orderRepo.update(orderId, {
       status: newStatus,
     });
+
+    //mark processed
+    await this.processedRepo.save({ eventId });
 
     if (result.affected === 0) {
       this.logger.warn(`Order ${orderId} not found`);
