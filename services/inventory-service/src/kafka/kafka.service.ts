@@ -18,18 +18,42 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   private consumer: Consumer = this.kafka.consumer({
     groupId: "inventory-group",
   });
+  private producer = this.kafka.producer();
 
   async onModuleInit() {
     await this.consumer.connect();
-    this.logger.log("✅ Inventory Kafka connected");
+    await this.producer.connect();
+    this.logger.log("✅ Inventory Kafka connected (consumer + producer)");
   }
 
   async onModuleDestroy() {
-    await this.consumer.disconnect();
+    try {
+      await this.producer.disconnect();
+    } catch (err) {
+      this.logger.warn('Producer disconnect failed', String(err));
+    }
+
+    try {
+      await this.consumer.disconnect();
+    } catch (err) {
+      this.logger.warn('Consumer disconnect failed', String(err));
+    }
+
     this.logger.log("🔌 Inventory Kafka disconnected");
   }
 
   getConsumer(): Consumer {
     return this.consumer;
+  }
+
+  async sendEvent(topic: string, message: any): Promise<void> {
+    await this.producer.send({
+      topic,
+      messages: [
+        {
+          value: JSON.stringify(message),
+        },
+      ],
+    });
   }
 }

@@ -27,6 +27,7 @@ export class NotificationConsumer implements OnModuleInit {
 
     await this.consumer.subscribe({ topic: "payment.success" });
     await this.consumer.subscribe({ topic: "payment.failed" });
+    await this.consumer.subscribe({ topic: "order.confirmed" });
 
     this.logger.log("Listening to payment events from notification service");
 
@@ -39,7 +40,7 @@ export class NotificationConsumer implements OnModuleInit {
           await this.emailService.sendEmail(
             "boron.roy@gmail.com",
             "Payment Successful",
-            `Order ${data.orderId} completed successfully`,
+            `Payment for order ${data.orderId} completed successfully`,
           );
         }
 
@@ -47,7 +48,15 @@ export class NotificationConsumer implements OnModuleInit {
           await this.emailService.sendEmail(
             "boron.roy@gmail.com",
             "Payment Failed",
-            `Order ${data.orderId} failed`,
+            `Payment for order ${data.orderId} failed`,
+          );
+        }
+
+        if (topic === "order.confirmed") {
+          await this.emailService.sendEmail(
+            "boron.roy@gmail.com",
+            "Order Confirmed",
+            `Your order ${data.orderId} is confirmed!`,
           );
         }
       },

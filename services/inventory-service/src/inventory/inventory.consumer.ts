@@ -40,6 +40,13 @@ export class InventoryConsumer implements OnModuleInit {
             data.productId,
             data.quantity,
           );
+          //NEW EVENT
+          await this.kafkaService.sendEvent("inventory.updated", {
+            orderId: data.orderId,
+            productId: data.productId,
+            quantity: data.quantity,
+          });
+          this.logger.log(`Inventory updated event emitted`);
         } catch (err) {
           this.logger.error("Inventory update failed", err);
         }

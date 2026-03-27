@@ -21,7 +21,6 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.producer.connect();
-    await this.startConsumerWithRetry();
   }
 
   async onModuleDestroy() {
@@ -30,32 +29,23 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     await this.producer.disconnect();
   }
 
-  private async startConsumerWithRetry() {
+  /**
+   * Connect the internal consumer with retry/backoff. This does NOT
+   * subscribe or run; consumers should call `getConsumer()` and then
+   * subscribe/run themselves. This preserves per-message retry semantics
+   * in the consumer implementations.
+   */
+  async connectConsumerWithRetry() {
     while (!this.isShuttingDown) {
       try {
         await this.consumer.connect();
-        await this.consumer.subscribe({
-          topic: "order.created",
-          fromBeginning: true,
-        });
 
-        this.logger.log("Payment Service connected to Kafka");
-
-        await this.consumer.run({
-          eachMessage: async ({ message }) => {
-            const data = JSON.parse(message.value?.toString() || "{}");
-
-            this.logger.log(`Received order event: ${JSON.stringify(data)}`);
-            // await this.processPayment(data);
-            await this.handleWithRetry(data);
-          },
-        });
-
+        this.logger.log("Consumer connected to Kafka");
         return;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(
-          `Payment consumer failed: ${message}. Retrying in 5 seconds.`,
+          `Consumer connect failed: ${message}. Retrying in 5 seconds.`,
         );
         await this.disconnectConsumer();
         this.consumer = this.kafka.consumer({ groupId: "payment-group" });
@@ -79,66 +69,8 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  //   async processPayment(order: any) {
-  //     this.logger.log(`Processing payment for order ${order.id}`);
-
-  //     await new Promise((res) => setTimeout(res, 1000));
-
-  //     this.logger.log(`Payment successful for order ${order.id}`);
-  //   }
-
-  async processPayment(order: any) {
-    this.logger.log(`Processing payment for order ${order.id}`);
-
-    // 🔥 simulate random failure
-    const fail = Math.random() < 0.5;
-
-    if (fail) {
-      throw new Error("Simulated payment failure");
-    }
-
-    await this.delay(1000);
-
-    this.logger.log(`Payment successful for order ${order.id}`);
-
-    // 🔥 emit success event with product details so downstream consumers can update inventory
-    await this.producer.send({
-      topic: "payment.success",
-      messages: [
-        {
-          value: JSON.stringify({
-            orderId: order.id,
-            status: "SUCCESS",
-            productId: order.productId,
-            quantity: order.quantity,
-          }),
-        },
-      ],
-    });
-  }
-
-  async handleWithRetry(order: any, retries = 3) {
-    while (retries > 0) {
-      try {
-        await this.processPayment(order);
-        return;
-      } catch (err) {
-        this.logger.error(
-          `Payment failed for order ${order.id}. Retries left: ${retries}`,
-        );
-        retries--;
-
-        await this.delay(1000);
-      }
-    }
-
-    this.logger.error(`Sending order ${order.id} to DLQ`);
-
-    await this.producer.send({
-      topic: "payment.failed",
-      messages: [{ value: JSON.stringify(order) }],
-    });
-  }
+  // NOTE: business logic (processPayment / message-level retry) belongs in
+  // consumer classes. Keeping producer helper here for sending events.
 
   getConsumer(): Consumer {
     return this.consumer;

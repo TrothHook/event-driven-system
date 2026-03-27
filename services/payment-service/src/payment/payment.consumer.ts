@@ -24,6 +24,9 @@ export class PaymentConsumer implements OnModuleInit {
   constructor(private kafkaService: KafkaService) {}
 
   async onModuleInit() {
+    // ensure underlying consumer is connected (with retry/backoff)
+    await this.kafkaService.connectConsumerWithRetry();
+
     const consumer = this.kafkaService.getConsumer();
 
     await consumer.subscribe({
@@ -31,7 +34,7 @@ export class PaymentConsumer implements OnModuleInit {
       fromBeginning: true,
     });
 
-    this.logger.log("👀 Listening to topic: order.created");
+    this.logger.log("Listening to topic: order.created");
 
     await consumer.run({
       eachMessage: async ({ message }) => {
@@ -39,17 +42,17 @@ export class PaymentConsumer implements OnModuleInit {
           const raw = message.value?.toString() || "{}";
           const data: OrderCreatedEvent = JSON.parse(raw);
 
-          this.logger.log(`📩 Received order event: ${raw}`);
+          this.logger.log(`Received order event: ${raw}`);
 
           await this.handleWithRetry(data);
         } catch (error) {
-          this.logger.error("❌ Failed to process message", error);
+          this.logger.error("Failed to process message", error);
         }
       },
     });
   }
 
-  // 🔁 retry wrapper
+  //retry wrapper
   async handleWithRetry(order: OrderCreatedEvent, retries = 3) {
     while (retries > 0) {
       try {
@@ -57,7 +60,7 @@ export class PaymentConsumer implements OnModuleInit {
         return;
       } catch (err) {
         this.logger.error(
-          `❌ Payment failed for order ${order.id}. Retries left: ${retries}`,
+          `Payment failed for order ${order.id}. Retries left: ${retries}`,
         );
 
         retries--;
@@ -65,7 +68,7 @@ export class PaymentConsumer implements OnModuleInit {
       }
     }
 
-    this.logger.error(`💀 Sending to DLQ for order ${order.id}`);
+    this.logger.error(`Sending to DLQ for order ${order.id}`);
 
     //emit FAILED event (standardized)
     const event: PaymentEvent = {
@@ -76,9 +79,9 @@ export class PaymentConsumer implements OnModuleInit {
     await this.kafkaService.sendEvent("payment.failed", event);
   }
 
-  // 💳 main logic
+  // main logic
   async processPayment(order: OrderCreatedEvent) {
-    this.logger.log(`💳 Processing payment for order ${order.id}`);
+    this.logger.log(`Processing payment for order ${order.id}`);
 
     // simulate random failure
     const fail = Math.random() < 0.5;
@@ -89,7 +92,7 @@ export class PaymentConsumer implements OnModuleInit {
 
     await this.delay(1000);
 
-    this.logger.log(`✅ Payment successful for order ${order.id}`);
+    this.logger.log(`Payment successful for order ${order.id}`);
 
     const event: PaymentEvent = {
       orderId: order.id,
